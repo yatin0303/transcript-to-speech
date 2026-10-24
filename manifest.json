@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "Video Transcript Voiceover",
+  "version": "0.1.0",
+  "description": "Speaks timestamped video captions in sync with HTML5 video.",
+  "permissions": ["storage"],
+  "host_permissions": ["https://video.deeplearning.ai/*"],
+  "action": {
+    "default_title": "Video Transcript Voiceover"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": [
+        "dist/scripts/transcript.js",
+        "dist/scripts/captions.js",
+        "dist/scripts/playback.js",
+        "dist/scripts/panel.js",
+        "dist/content.js"
+      ],
+      "css": ["styles.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}

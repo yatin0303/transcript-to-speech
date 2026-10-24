@@ -1,0 +1,137 @@
+#vtv-panel {
+  position: fixed;
+  z-index: 2147483647;
+  right: 20px;
+  bottom: 20px;
+  font: 14px/1.45 system-ui, sans-serif;
+  color: #f7f7fb;
+}
+
+#vtv-panel button,
+#vtv-panel select,
+#vtv-panel input,
+#vtv-panel textarea {
+  font: inherit;
+}
+
+#vtv-toggle {
+  border: 0;
+  border-radius: 999px;
+  background: #6657e8;
+  color: white;
+  box-shadow: 0 6px 22px #0006;
+  padding: 11px 15px;
+  cursor: pointer;
+}
+
+#vtv-card {
+  width: 340px;
+  margin-bottom: 10px;
+  padding: 15px;
+  border: 1px solid #ffffff1f;
+  border-radius: 14px;
+  background: #17171deF;
+  box-shadow: 0 12px 40px #0008;
+}
+
+.vtv-heading,
+.vtv-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.vtv-heading button {
+  border: 0;
+  background: transparent;
+  color: #fff;
+  font-size: 23px;
+  cursor: pointer;
+}
+
+#vtv-card p,
+#vtv-card small {
+  display: block;
+  color: #c8c8d3;
+  margin: 8px 0;
+}
+
+#vtv-native {
+  width: 100%;
+  margin: 4px 0 8px;
+  border: 1px solid #6657e8;
+  border-radius: 7px;
+  padding: 7px;
+  color: #e9e6ff;
+  background: #302b58;
+  cursor: pointer;
+}
+
+#vtv-native:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+#vtv-vtt {
+  width: 100%;
+  min-height: 122px;
+  box-sizing: border-box;
+  resize: vertical;
+  padding: 8px;
+  border: 1px solid #4a4a5a;
+  border-radius: 7px;
+  background: #24242e;
+  color: #fff;
+}
+
+#vtv-card label {
+  display: block;
+  margin-top: 10px;
+}
+
+#vtv-card select {
+  width: 100%;
+  margin-top: 4px;
+  padding: 5px;
+  background: #24242e;
+  color: white;
+  border: 1px solid #4a4a5a;
+  border-radius: 6px;
+}
+
+.vtv-options {
+  display: flex;
+  gap: 14px;
+}
+
+.vtv-options label {
+  flex: 1;
+}
+
+.vtv-options input[type=range] {
+  width: 100%;
+}
+
+.vtv-options input[type=number] {
+  width: 65px;
+  padding: 3px;
+}
+
+.vtv-actions {
+  margin-top: 13px;
+}
+
+.vtv-actions button {
+  border: 0;
+  border-radius: 7px;
+  padding: 8px 10px;
+  background: #6657e8;
+  color: #fff;
+  cursor: pointer;
+}
+
+.vtv-actions button:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}

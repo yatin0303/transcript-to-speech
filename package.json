@@ -1,0 +1,15 @@
+{
+  "name": "video-transcript-voiceover",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Chrome extension that speaks timestamped video captions.",
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "watch": "tsc --project tsconfig.json --watch",
+    "typecheck": "tsc --project tsconfig.json --noEmit",
+    "test": "npm run build && node --test tests/extension.test.cjs"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2"
+  }
+}
