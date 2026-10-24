@@ -6,7 +6,8 @@
   "permissions": ["storage"],
   "host_permissions": ["https://video.deeplearning.ai/*"],
   "action": {
-    "default_title": "Video Transcript Voiceover"
+    "default_title": "Video Transcript Voiceover",
+    "default_popup": "popup.html"
   },
   "content_scripts": [
     {

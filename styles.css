@@ -1,3 +1,8 @@
+#vtv-panel[hidden],
+#vtv-card[hidden] {
+  display: none !important;
+}
+
 #vtv-panel {
   position: fixed;
   z-index: 2147483647;

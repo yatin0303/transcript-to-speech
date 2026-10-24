@@ -21,6 +21,8 @@ TypeScript source lives in `src/`. The build creates JavaScript and source maps 
 5. Select **Use video captions** when the site exposes a standard caption track; it may take a few seconds to load. Alternatively, paste either a WebVTT transcript or a copied transcript with timestamp headings such as `0:00` followed by its text.
 6. Press **Start voiceover**. It starts the current video and narration together.
 
+To hide the floating bubble, click the extension’s icon in Chrome’s toolbar (or find **Video Transcript Voiceover** in the Extensions menu) and turn off **Enable voiceover bubble**. This also stops any active voiceover. Turn it on from the same menu when needed. Your choice applies to all open tabs and is remembered for new pages and browser restarts.
+
 The cue time is the source of truth, so a plain transcript without timestamps cannot be synced. If a voice runs beyond the next cue, it finishes the current phrase and then resumes at the cue matching the video's current time. Use the Rate and Offset controls to compensate for the chosen system voice. When a video exposes a subtitle file, the extension tries to retrieve it directly, including WebVTT segments listed in an HLS subtitle playlist. Some sites, including YouTube, do not expose their captions as a standard browser track; copy the timestamped transcript from the site and paste it into the extension.
 
 ## Code structure
@@ -28,6 +30,7 @@ The cue time is the source of truth, so a plain transcript without timestamps ca
 | File | Responsibility |
 | --- | --- |
 | `src/content.ts` | Entry point: connects panel actions, caption loading, and playback; retries native caption loading. |
+| `src/popup.ts`, `popup.html`, `popup.css` | Toolbar menu with a saved switch to enable or disable the floating bubble across tabs. |
 | `src/scripts/transcript.ts` | Parses WebVTT and copied transcripts; groups fragments into sentence cues. |
 | `src/scripts/captions.ts` | Finds videos and reads captions from native tracks, subtitle files, and HLS playlists. |
 | `src/scripts/playback.ts` | Owns speech settings, cue progress, video event listeners, and the synchronization timer. |

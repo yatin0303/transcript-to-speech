@@ -1,3 +1,18 @@
+declare const chrome: {
+  storage: {
+    local: {
+      get(defaults: { bubbleEnabled: boolean }): Promise<{ bubbleEnabled: boolean }>;
+      set(items: { bubbleEnabled: boolean }): Promise<void>;
+    };
+    onChanged: {
+      addListener(callback: (
+        changes: Record<string, { newValue?: unknown }>,
+        areaName: string,
+      ) => void): void;
+    };
+  };
+};
+
 declare namespace VideoTranscriptVoiceover {
   interface Cue {
     start: number;

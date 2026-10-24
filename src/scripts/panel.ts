@@ -3,6 +3,7 @@ namespace VideoTranscriptVoiceover {
     export function create(): PanelElements {
       const panel = document.createElement("section");
       panel.id = "vtv-panel";
+      panel.hidden = true;
       panel.innerHTML = `
         <button id="vtv-toggle" aria-expanded="false">🔊 Voiceover</button>
         <div id="vtv-card" hidden>

@@ -5,6 +5,37 @@
   const NATIVE_LOAD_INTERVAL_MS = 250;
   const NATIVE_LOAD_MAX_ATTEMPTS = 40;
   let nativeLoadTimer: number | null = null;
+  let bubbleEnabled = false;
+  let settingsRevision = 0;
+
+  function applyBubbleEnabled(enabled: boolean): void {
+    bubbleEnabled = enabled;
+    ui.panel.hidden = !enabled;
+    if (!enabled) {
+      clearNativeLoadTimer();
+      playback.stop();
+      playback.attach(null);
+      ui.card.hidden = true;
+      ui.toggle.setAttribute("aria-expanded", "false");
+      ui.start.disabled = !playback.cues.length;
+      ui.stop.disabled = true;
+      ui.nativeCaptions.disabled = false;
+      ui.status.textContent = "Voiceover stopped.";
+    }
+  }
+
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName !== "local" || !changes.bubbleEnabled) return;
+    settingsRevision++;
+    applyBubbleEnabled(changes.bubbleEnabled.newValue !== false);
+  });
+
+  const initialRevision = settingsRevision;
+  void chrome.storage.local.get({ bubbleEnabled: true }).then((settings) => {
+    if (settingsRevision === initialRevision) applyBubbleEnabled(settings.bubbleEnabled !== false);
+  }).catch(() => {
+    // Keep the bubble out of the way if the saved preference cannot be read.
+  });
 
   function attachCurrentVideo(): HTMLVideoElement | null {
     playback.attach(captions.findVideo());
@@ -78,9 +109,12 @@
   };
 
   ui.nativeCaptions.onclick = async () => {
+    if (!bubbleEnabled) return;
+    const loadRevision = settingsRevision;
     ui.nativeCaptions.disabled = true;
     ui.status.textContent = "Loading the video’s caption track…";
     const cues = await captions.fromFile(attachCurrentVideo());
+    if (!bubbleEnabled || settingsRevision !== loadRevision) return;
     let count = cues.length;
     if (count) playback.cues = cues;
     else count = importNativeCaptions();
@@ -107,6 +141,7 @@
   };
 
   ui.start.onclick = async () => {
+    if (!bubbleEnabled) return;
     if (!attachCurrentVideo()) {
       ui.status.textContent = "No HTML5 video found on this page.";
       return;

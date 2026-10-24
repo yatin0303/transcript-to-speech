@@ -10,6 +10,45 @@ const scripts = manifest.content_scripts[0].js;
 const entryPoint = scripts.at(-1);
 const plain = (value) => JSON.parse(JSON.stringify(value));
 
+function createStorage(initial = {}) {
+  const values = { ...initial };
+  const listeners = [];
+  const chrome = { storage: {
+    local: {
+      async get(defaults) { return { ...defaults, ...values }; },
+      async set(items) {
+        const changes = {};
+        for (const [key, newValue] of Object.entries(items)) {
+          changes[key] = { oldValue: values[key], newValue };
+          values[key] = newValue;
+        }
+        listeners.forEach((listener) => listener(changes, "local"));
+      },
+    },
+    onChanged: { addListener(listener) { listeners.push(listener); } },
+  } };
+  return chrome;
+}
+
+function createControls() {
+  const names = ["panel", "toggle", "card", "close", "start", "stop", "status", "vtt", "nativeCaptions", "voice", "rate", "rateOutput", "offset"];
+  const ui = Object.fromEntries(names.map((name) => [name, {
+    attributes: {},
+    setAttribute(key, value) { this.attributes[key] = value; },
+  }]));
+  ui.panel.hidden = true;
+  ui.card.hidden = true;
+  return ui;
+}
+
+function loadContent(env) {
+  const ui = createControls();
+  env.api.panel.create = () => ui;
+  env.api.panel.populateVoices = () => "system:en-US";
+  env.load(entryPoint);
+  return ui;
+}
+
 function createEnvironment(overrides = {}) {
   const spoken = [];
   const timers = new Map();
@@ -17,6 +56,7 @@ function createEnvironment(overrides = {}) {
   let timerId = 0;
   const context = vm.createContext({
     URL,
+    chrome: createStorage(),
     console: { warn() {} },
     document: { querySelectorAll: () => [] },
     window: {
@@ -69,7 +109,7 @@ const cues = [
 ];
 
 test("every declared extension asset exists", () => {
-  for (const file of [...scripts, ...manifest.content_scripts[0].css]) {
+  for (const file of [...scripts, ...manifest.content_scripts[0].css, manifest.action.default_popup, "popup.css", "dist/popup.js"]) {
     assert.ok(existsSync(path.join(root, file)), file);
   }
 });
@@ -164,6 +204,7 @@ test("panel construction provides every control used by the entry point", () => 
   } });
   const ui = api.panel.create();
   assert.equal(appended, ui.panel);
+  assert.equal(ui.panel.hidden, true);
   for (const [name, control] of Object.entries(ui)) assert.ok(control, name);
 });
 
@@ -279,11 +320,8 @@ test("blocked video playback remains ready for a later user play event", async (
 test("entry point connects transcript input and start/stop controls", async () => {
   const video = createVideo();
   const env = createEnvironment({ document: { querySelectorAll: () => [video] } });
-  const names = ["toggle", "card", "close", "start", "stop", "status", "vtt", "nativeCaptions", "voice", "rate", "rateOutput", "offset"];
-  const ui = Object.fromEntries(names.map((name) => [name, { setAttribute() {} }]));
-  env.api.panel.create = () => ui;
-  env.api.panel.populateVoices = () => "system:en-US";
-  env.load(entryPoint);
+  const ui = loadContent(env);
+  await Promise.resolve();
   ui.vtt.value = "0:00 Hello.\n0:04 Again!";
   ui.vtt.oninput();
   assert.equal(ui.start.disabled, false);
@@ -300,4 +338,127 @@ test("entry point connects transcript input and start/stop controls", async () =
   ui.stop.onclick();
   assert.equal(ui.stop.disabled, true);
   assert.equal(env.timers.size, 0);
+});
+
+test("saved preference hides the bubble on load and changes reach every tab", async () => {
+  const chrome = createStorage({ bubbleEnabled: false });
+  const first = loadContent(createEnvironment({ chrome }));
+  const second = loadContent(createEnvironment({ chrome }));
+  await Promise.resolve();
+  assert.equal(first.panel.hidden, true);
+  assert.equal(second.panel.hidden, true);
+  await chrome.storage.local.set({ bubbleEnabled: true });
+  assert.equal(first.panel.hidden, false);
+  assert.equal(second.panel.hidden, false);
+  await chrome.storage.local.set({ bubbleEnabled: false });
+  assert.equal(first.panel.hidden, true);
+  assert.equal(second.panel.hidden, true);
+  const newTab = loadContent(createEnvironment({ chrome }));
+  await Promise.resolve();
+  assert.equal(newTab.panel.hidden, true);
+});
+
+test("disabling hides the open panel, cancels speech, and releases video listeners", async () => {
+  const chrome = createStorage();
+  const video = createVideo();
+  const env = createEnvironment({ chrome, document: { querySelectorAll: () => [video] } });
+  const ui = loadContent(env);
+  await Promise.resolve();
+  assert.equal(ui.panel.hidden, false);
+  ui.toggle.onclick();
+  ui.vtt.value = "0:00 Hello.";
+  ui.vtt.oninput();
+  await ui.start.onclick();
+  assert.equal(env.timers.size, 1);
+  const cancellations = env.calls.cancel;
+  await chrome.storage.local.set({ bubbleEnabled: false });
+  assert.equal(ui.panel.hidden, true);
+  assert.equal(ui.card.hidden, true);
+  assert.equal(ui.toggle.attributes["aria-expanded"], "false");
+  assert.equal(ui.stop.disabled, true);
+  assert.equal(env.timers.size, 0);
+  assert.ok(env.calls.cancel > cancellations);
+  video.pause();
+  assert.equal(env.calls.pause, 0);
+  await chrome.storage.local.set({ bubbleEnabled: true });
+  assert.equal(ui.panel.hidden, false);
+  assert.equal(ui.card.hidden, true);
+  assert.equal(env.timers.size, 0);
+  await ui.start.onclick();
+  assert.equal(env.timers.size, 1);
+});
+
+test("disabling during a caption request prevents delayed loading and retries", async () => {
+  const chrome = createStorage();
+  const video = createVideo();
+  video.textTracks = [{ kind: "subtitles", cues: [] }];
+  const env = createEnvironment({ chrome, document: { querySelectorAll: () => [video] } });
+  let finish;
+  env.api.captions.fromFile = () => new Promise((resolve) => { finish = resolve; });
+  const ui = loadContent(env);
+  await Promise.resolve();
+  const loading = ui.nativeCaptions.onclick();
+  await chrome.storage.local.set({ bubbleEnabled: false });
+  await chrome.storage.local.set({ bubbleEnabled: true });
+  finish([]);
+  await loading;
+  assert.equal(env.timers.size, 0);
+  assert.equal(ui.nativeCaptions.disabled, false);
+  assert.equal(ui.status.textContent, "Voiceover stopped.");
+});
+
+test("a newer preference change wins over a delayed initial read", async () => {
+  const chrome = createStorage();
+  let finish;
+  chrome.storage.local.get = () => new Promise((resolve) => { finish = resolve; });
+  const ui = loadContent(createEnvironment({ chrome }));
+  await chrome.storage.local.set({ bubbleEnabled: false });
+  finish({ bubbleEnabled: true });
+  await Promise.resolve();
+  assert.equal(ui.panel.hidden, true);
+});
+
+test("toolbar switch saves the preference, updates the page, and restores it on reopen", async () => {
+  const chrome = createStorage();
+  const page = loadContent(createEnvironment({ chrome }));
+  function openPopup() {
+    const controls = { checked: false, disabled: true };
+    const status = {};
+    const env = createEnvironment({ chrome, document: {
+      querySelector: (selector) => selector === "#bubble-enabled" ? controls : status,
+    } });
+    env.load("dist/popup.js");
+    return { controls, status };
+  }
+  const popup = openPopup();
+  await Promise.resolve();
+  assert.equal(popup.controls.checked, true);
+  assert.equal(popup.controls.disabled, false);
+  popup.controls.checked = false;
+  await popup.controls.onchange();
+  assert.equal(page.panel.hidden, true);
+  assert.match(popup.status.textContent, /hidden/);
+  const reopened = openPopup();
+  await Promise.resolve();
+  assert.equal(reopened.controls.checked, false);
+  reopened.controls.checked = true;
+  await reopened.controls.onchange();
+  assert.equal(page.panel.hidden, false);
+});
+
+test("toolbar switch restores its previous state if saving fails", async () => {
+  const chrome = createStorage();
+  chrome.storage.local.set = async () => { throw new Error("Storage unavailable"); };
+  const toggle = { disabled: true };
+  const status = {};
+  const env = createEnvironment({ chrome, document: {
+    querySelector: (selector) => selector === "#bubble-enabled" ? toggle : status,
+  } });
+  env.load("dist/popup.js");
+  await Promise.resolve();
+  toggle.checked = false;
+  await toggle.onchange();
+  assert.equal(toggle.checked, true);
+  assert.equal(toggle.disabled, false);
+  assert.match(status.textContent, /Could not save/);
 });
